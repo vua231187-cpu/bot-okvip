@@ -3,7 +3,7 @@ import sqlite3
 from telebot import types
 
 # ========= CONFIG =========
-buy_state = {}
+buy_state = {}  # uid: "confirm_buy"
 admin_add_mode = {}
 pending_deposits = {}
 
@@ -109,11 +109,12 @@ def admin_panel(message):
 # ========= MUA ACC =========
 @bot.message_handler(func=lambda m: m.text == "🛒 Mua acc OKVIP")
 def buy_acc(message):
-    buy_state[message.from_user.id] = True
+    uid = message.from_user.id
+    buy_state[uid] = "confirm_buy"
 
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row("✅ Xác nhận mua", "❌ Hủy")
-    kb.row("🔙 Quay lại")
+    kb.add("⬅️ Quay lại")
 
     bot.send_message(
         message.chat.id,
@@ -125,34 +126,43 @@ def buy_acc(message):
 def confirm_buy(message):
     uid = message.from_user.id
 
-    if uid not in buy_state:
+    if buy_state.get(uid) != "confirm_buy":
         bot.send_message(
             message.chat.id,
-            "❌ Bạn chưa chọn mua acc",
+            "❌ Phiên mua không hợp lệ\nVui lòng mua lại từ đầu",
             reply_markup=user_menu()
         )
         return
 
+    # XÓA STATE NGAY SAU KHI KIỂM TRA
     buy_state.pop(uid, None)
 
     cur.execute("SELECT balance FROM users WHERE user_id=?", (uid,))
-    balance = cur.fetchone()[0]
+    row = cur.fetchone()
 
-    if balance < ACC_PRICE:
-        bot.send_message(message.chat.id, "❌ Số dư không đủ", reply_markup=user_menu())
+    if not row or row[0] < ACC_PRICE:
+        bot.send_message(
+            message.chat.id,
+            "❌ Số dư không đủ",
+            reply_markup=user_menu()
+        )
         return
 
     cur.execute("SELECT id, username, password FROM accounts WHERE sold=0 LIMIT 1")
     acc = cur.fetchone()
 
     if not acc:
-        bot.send_message(message.chat.id, "❌ Hết acc", reply_markup=user_menu())
+        bot.send_message(
+            message.chat.id,
+            "❌ Hết acc",
+            reply_markup=user_menu()
+        )
         return
 
     acc_id, u, p = acc
 
     cur.execute("UPDATE accounts SET sold=1 WHERE id=?", (acc_id,))
-    cur.execute("UPDATE users SET balance=balance-? WHERE user_id=?", (ACC_PRICE, uid))
+    cur.execute("UPDATE users SET balance = balance - ? WHERE user_id=?", (ACC_PRICE, uid))
     cur.execute("INSERT INTO purchases VALUES (?, ?, datetime('now'))", (uid, u))
     conn.commit()
 
@@ -174,10 +184,6 @@ def add_acc(message):
         "➕ ADD ACC OKVIP\n\nGửi theo dạng:\nuser|pass",
         reply_markup=back_kb()
     )
-@bot.message_handler(func=lambda m: m.text == "❌ Hủy")
-def cancel_buy(message):
-    buy_state.pop(message.from_user.id, None)
-    bot.send_message(message.chat.id, "❌ Đã hủy mua", reply_markup=user_menu())
 
 @bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
 def save_acc(message):
