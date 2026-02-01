@@ -189,7 +189,7 @@ def deposit_menu(message):
         f"NAP {uid}\n\n"
         "⚠️ Lưu ý:\n"
         "– Nhập đúng nội dung để được duyệt nhanh\n"
-        "– Nạp tối thiểu: 20.000đ\n\n"
+        "– Nạp tối thiểu: 20000đ\n\n"
         "⏳ Sau khi chuyển xong, bấm nút bên dưới"
     )
 
@@ -197,16 +197,20 @@ def deposit_menu(message):
     kb.add("✅ Tôi đã nạp tiền")
     kb.add("⬅️ Quay lại")
 
-    # Bóng chat 1 – chữ + nút
+    # BÓNG CHAT 1: NỘI DUNG
     bot.send_message(message.chat.id, text, reply_markup=kb)
 
-    # Bóng chat 2 – ảnh QR admin
-    bot.send_message(
-    message.chat.id,
-    "⚠️ QR hiện tại đang lỗi.\n"
-    "👉 Vui lòng liên hệ CSKH để nạp tiền:\n"
-    "@cskhokvip117"
-)
+    # BÓNG CHAT 2: ẢNH QR ADMIN
+    try:
+        with open("qr_admin.png", "rb") as photo:
+            bot.send_photo(message.chat.id, photo)
+    except:
+        bot.send_message(
+            message.chat.id,
+            "⚠️ QR hiện đang lỗi\n"
+            "Vui lòng liên hệ CSKH để nạp tiền\n"
+            "👉 @cskhokvip117"
+        )
 
 @bot.message_handler(func=lambda m: m.text == "✅ Tôi đã nạp tiền")
 def user_confirm_deposit(message):
