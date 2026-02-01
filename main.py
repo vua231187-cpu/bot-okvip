@@ -100,72 +100,112 @@ def start(message):
         reply_markup=user_menu()
     )
 
+# ========= ADMIN UTILS =========
+def is_admin(uid):
+    return uid in ADMIN_IDS
+
+admin_state = {}  # uid: "add_acc"
+
+# ========= ADMIN MENU =========
+def admin_kb():
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.row("➕ Thêm acc", "📦 Kho acc")
+    kb.row("💰 Cộng tiền", "➖ Trừ tiền")
+    kb.row("📊 Thống kê")
+    kb.add("⬅️ Thoát admin")
+    return kb
+
 @bot.message_handler(commands=["admin"])
-def admin_panel(message):
-    if message.from_user.id not in ADMIN_IDS:
+def admin_start(message):
+    if not is_admin(message.from_user.id):
         bot.send_message(message.chat.id, "❌ Bạn không có quyền admin")
         return
 
     bot.send_message(
         message.chat.id,
-        "👮 ADMIN PANEL",
-        reply_markup=admin_menu()
+        "👑 ADMIN PANEL",
+        reply_markup=admin_kb()
     )
-# =========ADMIN ===========
-@bot.message_handler(commands=['admin'])
-def admin_menu(message):
-    if not is_admin(message.from_user.id):
-        return
 
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("➕ Thêm acc", "📦 Kho acc")
-    kb.add("➕ Cộng tiền", "➖ Trừ tiền")
-    kb.add("📊 Thống kê", "👥 Danh sách user")
-    kb.add("⬅️ Quay lại")
-
-    bot.send_message(message.chat.id, "👑 Menu Admin", reply_markup=kb)
-admin_add_mode = {}
-
-@bot.message_handler(func=lambda m: m.text == "➕ Thêm acc")
+# ========= ADD ACC =========
+@bot.message_handler(func=lambda m: m.text == "➕ Thêm acc" and is_admin(m.from_user.id))
 def admin_add_acc(message):
-    if not is_admin(message.from_user.id):
+    admin_state[message.from_user.id] = "add_acc"
+    bot.send_message(
+        message.chat.id,
+        "➕ THÊM ACC\nGửi theo dạng:\nuser|pass\n\nGửi ⬅️ để hủy"
+    )
+
+@bot.message_handler(func=lambda m: admin_state.get(m.from_user.id) == "add_acc")
+def admin_save_acc(message):
+    if message.text == "⬅️ Thoát admin":
+        admin_state.pop(message.from_user.id, None)
         return
-    admin_add_mode[message.from_user.id] = True
-    bot.send_message(message.chat.id, "Gửi acc theo dạng:\nuser|pass")
-    
-@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
-def save_acc(message):
-    acc = message.text.strip()
-    cur.execute("INSERT INTO accounts(acc) VALUES (?)", (acc,))
+
+    if "|" not in message.text:
+        bot.send_message(message.chat.id, "❌ Sai định dạng user|pass")
+        return
+
+    u, p = message.text.split("|", 1)
+    cur.execute(
+        "INSERT INTO accounts(username, password) VALUES (?, ?)",
+        (u.strip(), p.strip())
+    )
     conn.commit()
-    bot.send_message(message.chat.id, "✅ Đã thêm acc")
-    
-@bot.message_handler(func=lambda m: m.text == "📦 Kho acc")
-def stock(message):
-    if not is_admin(message.from_user.id):
-        return
+
+    admin_state.pop(message.from_user.id, None)
+    bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_kb())
+
+# ========= KHO ACC =========
+@bot.message_handler(func=lambda m: m.text == "📦 Kho acc" and is_admin(m.from_user.id))
+def admin_stock(message):
     cur.execute("SELECT COUNT(*) FROM accounts WHERE sold=0")
     total = cur.fetchone()[0]
-    bot.send_message(message.chat.id, f"📦 Acc còn: {total}")
+    bot.send_message(message.chat.id, f"📦 Acc chưa bán: {total}")
 
-@bot.message_handler(func=lambda m: m.text == "➕ Cộng tiền")
-def add_money(message):
+# ========= CỘNG / TRỪ TIỀN =========
+@bot.message_handler(commands=["cong"])
+def admin_add_money(message):
     if not is_admin(message.from_user.id):
         return
-    bot.send_message(message.chat.id, "Gửi: user_id số_tiền\nVD: 123456 50000")
+    try:
+        _, uid, amount = message.text.split()
+        uid, amount = int(uid), int(amount)
+        ensure_user(uid)
 
-@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and " " in m.text)
-def handle_add_money(message):
-    uid, amount = message.text.split()
-    amount = int(amount)
+        cur.execute(
+            "UPDATE users SET balance = balance + ? WHERE user_id=?",
+            (amount, uid)
+        )
+        conn.commit()
 
-    cur.execute("UPDATE users SET balance = balance + ? WHERE user_id=?",
-                (amount, uid))
-    conn.commit()
-    bot.send_message(message.chat.id, "✅ Đã cộng tiền")
+        bot.send_message(message.chat.id, "✅ Đã cộng tiền")
+        bot.send_message(uid, f"💰 Bạn được cộng {amount}đ", reply_markup=user_menu())
+    except:
+        bot.send_message(message.chat.id, "❌ Dùng: /cong user_id số_tiền")
 
-@bot.message_handler(func=lambda m: m.text == "📊 Thống kê")
-def stats(message):
+@bot.message_handler(commands=["tru"])
+def admin_minus_money(message):
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        _, uid, amount = message.text.split()
+        uid, amount = int(uid), int(amount)
+        ensure_user(uid)
+
+        cur.execute(
+            "UPDATE users SET balance = balance - ? WHERE user_id=?",
+            (amount, uid)
+        )
+        conn.commit()
+
+        bot.send_message(message.chat.id, "✅ Đã trừ tiền")
+    except:
+        bot.send_message(message.chat.id, "❌ Dùng: /tru user_id số_tiền")
+
+# ========= THỐNG KÊ =========
+@bot.message_handler(commands=["stats"])
+def admin_stats(message):
     if not is_admin(message.from_user.id):
         return
 
@@ -177,12 +217,17 @@ def stats(message):
 
     bot.send_message(
         message.chat.id,
-        f"📊 Thống kê\n👥 User: {users}\n💰 Tổng nạp: {total:,}đ"
+        f"📊 THỐNG KÊ\n"
+        f"👥 User: {users}\n"
+        f"💰 Tổng nạp: {total:,}đ"
     )
 
-@bot.message_handler(func=lambda m: m.text == "⬅️ Quay lại")
-def back_user(message):
-    bot.send_message(message.chat.id, "🏠 Menu chính", reply_markup=user_menu())
+# ========= THOÁT ADMIN =========
+@bot.message_handler(func=lambda m: m.text == "⬅️ Thoát admin")
+def admin_exit(message):
+    admin_state.pop(message.from_user.id, None)
+    bot.send_message(message.chat.id, "🏠 Menu user", reply_markup=user_menu())
+
 
 # ========= MUA ACC =========
 @bot.message_handler(func=lambda m: m.text == "🛒 Mua acc OKVIP")
