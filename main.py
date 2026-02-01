@@ -386,34 +386,24 @@ def user_confirm_deposit(message):
         reply_markup=user_menu()
     )
 
-    # Thông báo cho admin
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("reject_deposit:"))
-def reject_deposit(call):
-    admin_id = call.from_user.id
-    if admin_id not in ADMIN_IDS:
-        return
+    # GỬI CHO ADMIN + NÚT TỪ CHỐI
+    for admin_id in ADMIN_IDS:
+        kb = types.InlineKeyboardMarkup()
+        kb.add(
+            types.InlineKeyboardButton(
+                text="❌ Từ chối nạp",
+                callback_data=f"reject_deposit:{uid}"
+            )
+        )
 
-    uid = int(call.data.split(":")[1])
-
-    # Xóa trạng thái chờ nạp
-    pending_deposits.pop(uid, None)
-
-    # Thông báo cho user
-    bot.send_message(
-        uid,
-        "❌ YÊU CẦU NẠP TIỀN BỊ TỪ CHỐI\n\n"
-        "📌 Lý do có thể:\n"
-        "– Chưa nhận được tiền\n"
-        "– Sai nội dung chuyển khoản\n\n"
-        "👉 Vui lòng liên hệ admin để được hỗ trợ"
-    )
-
-    # Xác nhận cho admin
-    bot.edit_message_text(
-        "❌ ĐÃ TỪ CHỐI YÊU CẦU NẠP TIỀN",
-        call.message.chat.id,
-        call.message.message_id
-    )
+        bot.send_message(
+            admin_id,
+            f"💰 YÊU CẦU NẠP TIỀN\n\n"
+            f"👤 User ID: {uid}\n"
+            f"📌 Nội dung CK: NAP {uid}\n\n"
+            f"Duyệt bằng:\n/duyet {uid} <số_tiền>",
+            reply_markup=kb
+        )
 
 @bot.message_handler(commands=["duyet"])
 def approve_deposit(message):
@@ -575,6 +565,8 @@ def back_to_menu(message):
         "🏠 Menu chính",
         reply_markup=user_menu()
     )
+
+# ========= RUN =========
 @bot.callback_query_handler(func=lambda call: call.data.startswith("reject_deposit:"))
 def reject_deposit(call):
     admin_id = call.from_user.id
@@ -599,6 +591,4 @@ def reject_deposit(call):
         call.message.chat.id,
         call.message.message_id
     )
-
-# ========= RUN =========
 bot.infinity_polling()
