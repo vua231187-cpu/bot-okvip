@@ -376,10 +376,26 @@ def otp(message):
 def info(message):
     uid = message.from_user.id
 
-    cur.execute("SELECT balance, total_deposit FROM users WHERE user_id=?", (uid,))
-    balance, total = cur.fetchone()
+    cur.execute(
+        "SELECT balance, total_deposit FROM users WHERE user_id=?",
+        (uid,)
+    )
+    row = cur.fetchone()
 
-    cur.execute("SELECT COUNT(*) FROM purchases WHERE user_id=?", (uid,))
+    if not row:
+        bot.send_message(
+            message.chat.id,
+            "❌ Không tìm thấy thông tin tài khoản",
+            reply_markup=user_menu()
+        )
+        return
+
+    balance, total = row
+
+    cur.execute(
+        "SELECT COUNT(*) FROM purchases WHERE user_id=?",
+        (uid,)
+    )
     total_acc = cur.fetchone()[0]
 
     text = (
@@ -390,7 +406,12 @@ def info(message):
         f"💳 Tổng tiền nạp: {total} VND"
     )
 
-    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=back_kb())
+    bot.send_message(
+        message.chat.id,
+        text,
+        parse_mode="Markdown",
+        reply_markup=back_kb()
+    )
 
 # ========= HỖ TRỢ =========
 @bot.message_handler(func=lambda m: m.text == "🆘 Hỗ trợ")
