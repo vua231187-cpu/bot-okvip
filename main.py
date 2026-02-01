@@ -12,6 +12,10 @@ ADMIN_IDS = [6500271609]  # thay bằng ID telegram admin
 ACC_PRICE = 5000
 MIN_DEPOSIT = 20000
 ADMIN_SUPPORT = "@cskhokvip117"
+import time
+
+deposit_cooldown = {}  # uid: last_request_time
+DEPOSIT_SPAM_TIME = 60  # 60 giây mới được gửi lại
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -335,7 +339,6 @@ def deposit_menu(message):
     uid = message.from_user.id
     ensure_user(uid)   # ✅ ĐÚNG CHỖ
 
-    pending_deposits[uid] = True
 
     text = (
         "💰 NẠP TIỀN\n\n"
@@ -370,6 +373,8 @@ def deposit_menu(message):
 @bot.message_handler(func=lambda m: m.text == "✅ Tôi đã nạp tiền")
 def user_confirm_deposit(message):
     uid = message.from_user.id
+    
+    pending_deposits[uid] = "waiting"
 
     if uid not in pending_deposits:
         bot.send_message(
@@ -558,7 +563,6 @@ def back_to_menu(message):
 
     buy_state.pop(uid, None)
     admin_add_mode.pop(uid, None)
-    pending_deposits.pop(uid, None)
 
     bot.send_message(
         message.chat.id,
@@ -571,6 +575,7 @@ def back_to_menu(message):
 def reject_deposit(call):
     admin_id = call.from_user.id
     if admin_id not in ADMIN_IDS:
+        bot.answer_callback_query(call.id, "❌ Bạn không có quyền")
         return
 
     uid = int(call.data.split(":")[1])
@@ -581,14 +586,20 @@ def reject_deposit(call):
     # Thông báo cho user
     bot.send_message(
         uid,
-        "❌ Yêu cầu nạp tiền của bạn đã bị TỪ CHỐI.\n"
-        "📌 Vui lòng kiểm tra lại giao dịch hoặc liên hệ admin."
+        "❌ YÊU CẦU NẠP TIỀN BỊ TỪ CHỐI\n\n"
+        "📌 Lý do có thể:\n"
+        "– Chưa nhận được tiền\n"
+        "– Sai nội dung chuyển khoản\n\n"
+        "👉 Vui lòng liên hệ admin để được hỗ trợ"
     )
 
-    # Xác nhận cho admin
+    # Cập nhật tin nhắn admin
     bot.edit_message_text(
-        "❌ Đã từ chối yêu cầu nạp tiền",
+        "❌ ĐÃ TỪ CHỐI YÊU CẦU NẠP TIỀN",
         call.message.chat.id,
         call.message.message_id
     )
+
+    bot.answer_callback_query(call.id, "Đã từ chối")
+
 bot.infinity_polling()
