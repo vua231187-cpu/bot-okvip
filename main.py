@@ -16,6 +16,12 @@ ADMIN_SUPPORT = "@cskhokvip117"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # ========= DATABASE =========
+def ensure_user(uid):
+    cur.execute(
+        "INSERT OR IGNORE INTO users(user_id, balance, total_deposit) VALUES (?, 0, 0)",
+        (uid,)
+    )
+    conn.commit()
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cur = conn.cursor()
 
@@ -207,6 +213,8 @@ def save_acc(message):
     bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
 
 # ========= NẠP TIỀN =========
+uid = message.from_user.id
+ensure_user(uid)
 @bot.message_handler(func=lambda m: m.text == "💰 Nạp tiền")
 def deposit_menu(message):
     uid = message.from_user.id
@@ -343,6 +351,7 @@ def history_buy(message):
     )
 
 # ========= LỊCH SỬ NẠP =========
+ensure_user(uid)
 @bot.message_handler(func=lambda m: m.text == "📥 Lịch sử nạp tiền")
 def history_deposit(message):
     uid = message.from_user.id
@@ -376,21 +385,14 @@ def otp(message):
 def info(message):
     uid = message.from_user.id
 
+    # 🔐 đảm bảo user luôn tồn tại
+    ensure_user(uid)
+
     cur.execute(
         "SELECT balance, total_deposit FROM users WHERE user_id=?",
         (uid,)
     )
-    row = cur.fetchone()
-
-    if not row:
-        bot.send_message(
-            message.chat.id,
-            "❌ Không tìm thấy thông tin tài khoản",
-            reply_markup=user_menu()
-        )
-        return
-
-    balance, total = row
+    balance, total = cur.fetchone()
 
     cur.execute(
         "SELECT COUNT(*) FROM purchases WHERE user_id=?",
