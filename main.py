@@ -179,27 +179,23 @@ def cancel_buy(message):
     buy_state.pop(message.from_user.id, None)
     bot.send_message(message.chat.id, "❌ Đã hủy mua", reply_markup=user_menu())
 
-@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode and "|" in m.text)
+@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
 def save_acc(message):
-    if message.text == "⬅️ Quay lại":
+    if message.text in ["⬅️ Quay lại", "🔙 Quay lại"]:
         admin_add_mode.pop(message.from_user.id, None)
         bot.send_message(message.chat.id, "🔙 Admin menu", reply_markup=admin_menu())
         return
 
-    try:
-        user, pwd = message.text.split("|", 1)
-        cur.execute(
-            "INSERT INTO accounts(username, password) VALUES (?, ?)",
-            (user.strip(), pwd.strip())
-        )
-        conn.commit()
-
-        bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
-        admin_add_mode.pop(message.from_user.id, None)
-
-    except:
+    if "|" not in message.text:
         bot.send_message(message.chat.id, "❌ Sai định dạng, đúng là: user|pass")
+        return
 
+    user, pwd = message.text.split("|", 1)
+    cur.execute("INSERT INTO accounts(username, password) VALUES (?, ?)", (user.strip(), pwd.strip()))
+    conn.commit()
+
+    admin_add_mode.pop(message.from_user.id, None)
+    bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
 # ========= NẠP TIỀN =========
 @bot.message_handler(func=lambda m: m.text == "💰 Nạp tiền")
 def deposit_menu(message):
@@ -396,12 +392,14 @@ def support(message):
     )
 
 # ========= QUAY LẠI =========
-@bot.message_handler(func=lambda m: m.text == "🔙 Quay lại")
-def back(message):
-    bot.send_message(message.chat.id, "⬅️ Menu chính", reply_markup=user_menu())
-
-@bot.message_handler(func=lambda m: m.text == "⬅️ Quay lại")
+@bot.message_handler(func=lambda m: m.text in ["⬅️ Quay lại", "🔙 Quay lại", "❌ Hủy"])
 def back_to_menu(message):
+    uid = message.from_user.id
+
+    buy_state.pop(uid, None)
+    admin_add_mode.pop(uid, None)
+    pending_deposits.pop(uid, None)
+
     bot.send_message(
         message.chat.id,
         "🏠 Menu chính",
@@ -409,16 +407,4 @@ def back_to_menu(message):
     )
 
 # ========= RUN =========
-@bot.message_handler(func=lambda m: m.text == "⬅️ Quay lại")
-def back_to_menu(message):
-    admin_add_mode.pop(message.from_user.id, None)
-    buy_state.pop(message.from_user.id, None)
-    pending_deposits.pop(message.from_user.id, None)
-
-    bot.send_message(
-        message.chat.id,
-        "🏠 Menu chính",
-        reply_markup=user_menu()
-    )
-
 bot.infinity_polling()
