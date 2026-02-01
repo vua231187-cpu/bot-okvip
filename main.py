@@ -213,11 +213,11 @@ def save_acc(message):
     bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
 
 # ========= NẠP TIỀN =========
-uid = message.from_user.id
-ensure_user(uid)
 @bot.message_handler(func=lambda m: m.text == "💰 Nạp tiền")
 def deposit_menu(message):
     uid = message.from_user.id
+    ensure_user(uid)   # ✅ ĐÚNG CHỖ
+
     pending_deposits[uid] = True
 
     text = (
@@ -351,10 +351,11 @@ def history_buy(message):
     )
 
 # ========= LỊCH SỬ NẠP =========
-ensure_user(uid)
 @bot.message_handler(func=lambda m: m.text == "📥 Lịch sử nạp tiền")
 def history_deposit(message):
     uid = message.from_user.id
+    ensure_user(uid)   # ✅ ĐÚNG CHỖ
+
     cur.execute(
         "SELECT amount, time FROM deposits WHERE user_id=? ORDER BY time DESC LIMIT 5",
         (uid,)
