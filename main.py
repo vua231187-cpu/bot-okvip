@@ -111,6 +111,78 @@ def admin_panel(message):
         "👮 ADMIN PANEL",
         reply_markup=admin_menu()
     )
+# =========ADMIN ===========
+@bot.message_handler(commands=['admin'])
+def admin_menu(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    kb.add("➕ Thêm acc", "📦 Kho acc")
+    kb.add("➕ Cộng tiền", "➖ Trừ tiền")
+    kb.add("📊 Thống kê", "👥 Danh sách user")
+    kb.add("⬅️ Quay lại")
+
+    bot.send_message(message.chat.id, "👑 Menu Admin", reply_markup=kb)
+admin_add_mode = {}
+
+@bot.message_handler(func=lambda m: m.text == "➕ Thêm acc")
+def admin_add_acc(message):
+    if not is_admin(message.from_user.id):
+        return
+    admin_add_mode[message.from_user.id] = True
+    bot.send_message(message.chat.id, "Gửi acc theo dạng:\nuser|pass")
+    
+@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
+def save_acc(message):
+    acc = message.text.strip()
+    cur.execute("INSERT INTO accounts(acc) VALUES (?)", (acc,))
+    conn.commit()
+    bot.send_message(message.chat.id, "✅ Đã thêm acc")
+    
+@bot.message_handler(func=lambda m: m.text == "📦 Kho acc")
+def stock(message):
+    if not is_admin(message.from_user.id):
+        return
+    cur.execute("SELECT COUNT(*) FROM accounts WHERE sold=0")
+    total = cur.fetchone()[0]
+    bot.send_message(message.chat.id, f"📦 Acc còn: {total}")
+
+@bot.message_handler(func=lambda m: m.text == "➕ Cộng tiền")
+def add_money(message):
+    if not is_admin(message.from_user.id):
+        return
+    bot.send_message(message.chat.id, "Gửi: user_id số_tiền\nVD: 123456 50000")
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and " " in m.text)
+def handle_add_money(message):
+    uid, amount = message.text.split()
+    amount = int(amount)
+
+    cur.execute("UPDATE users SET balance = balance + ? WHERE user_id=?",
+                (amount, uid))
+    conn.commit()
+    bot.send_message(message.chat.id, "✅ Đã cộng tiền")
+
+@bot.message_handler(func=lambda m: m.text == "📊 Thống kê")
+def stats(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    cur.execute("SELECT COUNT(*) FROM users")
+    users = cur.fetchone()[0]
+
+    cur.execute("SELECT SUM(total_deposit) FROM users")
+    total = cur.fetchone()[0] or 0
+
+    bot.send_message(
+        message.chat.id,
+        f"📊 Thống kê\n👥 User: {users}\n💰 Tổng nạp: {total:,}đ"
+    )
+
+@bot.message_handler(func=lambda m: m.text == "⬅️ Quay lại")
+def back_user(message):
+    bot.send_message(message.chat.id, "🏠 Menu chính", reply_markup=user_menu())
 
 # ========= MUA ACC =========
 @bot.message_handler(func=lambda m: m.text == "🛒 Mua acc OKVIP")
