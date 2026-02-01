@@ -179,7 +179,7 @@ def cancel_buy(message):
     buy_state.pop(message.from_user.id, None)
     bot.send_message(message.chat.id, "❌ Đã hủy mua", reply_markup=user_menu())
 
-@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
+@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode and "|" in m.text)
 def save_acc(message):
     if message.text == "⬅️ Quay lại":
         admin_add_mode.pop(message.from_user.id, None)
@@ -409,4 +409,16 @@ def back_to_menu(message):
     )
 
 # ========= RUN =========
+@bot.message_handler(func=lambda m: m.text == "⬅️ Quay lại")
+def back_to_menu(message):
+    admin_add_mode.pop(message.from_user.id, None)
+    buy_state.pop(message.from_user.id, None)
+    pending_deposits.pop(message.from_user.id, None)
+
+    bot.send_message(
+        message.chat.id,
+        "🏠 Menu chính",
+        reply_markup=user_menu()
+    )
+
 bot.infinity_polling()
