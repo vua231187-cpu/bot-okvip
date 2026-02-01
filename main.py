@@ -191,11 +191,15 @@ def save_acc(message):
         return
 
     user, pwd = message.text.split("|", 1)
-    cur.execute("INSERT INTO accounts(username, password) VALUES (?, ?)", (user.strip(), pwd.strip()))
+    cur.execute(
+        "INSERT INTO accounts(username, password) VALUES (?, ?)",
+        (user.strip(), pwd.strip())
+    )
     conn.commit()
 
     admin_add_mode.pop(message.from_user.id, None)
     bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
+
 # ========= NẠP TIỀN =========
 @bot.message_handler(func=lambda m: m.text == "💰 Nạp tiền")
 def deposit_menu(message):
