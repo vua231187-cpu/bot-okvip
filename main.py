@@ -3,6 +3,7 @@ import sqlite3
 from telebot import types
 
 # ========= CONFIG =========
+admin_add_mode = {}
 pending_deposits = {}
 
 BOT_TOKEN = "8327784731:AAFmxn2OfgAK9hMIKgVLs3acbvjkgRDCrOs"
@@ -157,24 +158,34 @@ def add_acc(message):
     if message.from_user.id not in ADMIN_IDS:
         return
 
+    admin_add_mode[message.from_user.id] = True
+
     bot.send_message(
         message.chat.id,
         "➕ ADD ACC OKVIP\n\nGửi theo dạng:\nuser|pass",
         reply_markup=back_kb()
     )
 
-@bot.message_handler(func=lambda m: "|" in m.text and m.from_user.id in ADMIN_IDS)
+@bot.message_handler(func=lambda m: m.from_user.id in admin_add_mode)
 def save_acc(message):
+    if message.text == "⬅️ Quay lại":
+        admin_add_mode.pop(message.from_user.id, None)
+        bot.send_message(message.chat.id, "🔙 Admin menu", reply_markup=admin_menu())
+        return
+
     try:
-        user, pwd = message.text.split("|")
+        user, pwd = message.text.split("|", 1)
         cur.execute(
             "INSERT INTO accounts(username, password) VALUES (?, ?)",
             (user.strip(), pwd.strip())
         )
         conn.commit()
+
         bot.send_message(message.chat.id, "✅ Đã thêm acc", reply_markup=admin_menu())
+        admin_add_mode.pop(message.from_user.id, None)
+
     except:
-        bot.send_message(message.chat.id, "❌ Sai định dạng", reply_markup=admin_menu())
+        bot.send_message(message.chat.id, "❌ Sai định dạng, đúng là: user|pass")
 
 # ========= NẠP TIỀN =========
 @bot.message_handler(func=lambda m: m.text == "💰 Nạp tiền")
