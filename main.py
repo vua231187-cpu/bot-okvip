@@ -7,7 +7,7 @@ buy_state = {}  # uid: "confirm_buy"
 admin_add_mode = {}
 pending_deposits = {}
 
-BOT_TOKEN = "8327784731:AAFmxn2OfgAK9hMIKgVLs3acbvjkgRDCrOs"
+BOT_TOKEN = ""
 ADMIN_IDS = [6500271609]  # thay bằng ID telegram admin
 ACC_PRICE = 5000
 MIN_DEPOSIT = 20000
